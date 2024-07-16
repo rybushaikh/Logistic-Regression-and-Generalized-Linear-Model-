@@ -1,0 +1,382 @@
+---
+title: "Logistic Regression and Generalized Linear Model"
+author: "Shaikh Rahheb"
+date: "2024-07-16"
+output:
+  word_document: default
+  html_document: default
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+![](images/NEUlogo-03.png)
+
+# [**GLM and Logistic Regression*:***]{.underline}
+
+*By*
+
+*Shaikh Rahheb*
+
+*06/08/2023*
+
+***Intermediate Analytics\
+***
+
+[Dr. Vladmir Shapiro]{.underline}
+
+\\newpage
+
+# **Introduction:**
+
+Using R's glm() function, we applied the classification method of
+logistic regression for this assignment. By adding a link function,
+logistic regression expands the framework of general linear regression
+to represent the relationship between predictor variables and a
+categorical response variable. We attempted to predict whether a
+university is private or public based on a variety of predictor
+characteristics by using a logistic regression model.
+
+When the response variable is binary or categorical in character,
+logistic regression is especially helpful since it enables us to
+calculate the likelihood of a specific result. It offers a useful tool
+for comprehending the connection between predictor factors and the
+probability of falling into a particular category.
+
+We sought to accomplish several important learning objectives through
+this assignment, including the extension of generic linear regression to
+take into account non-normal error distribution models (CLO10) and the
+use of a link function to connect the linear model to the response
+variable (CLO11). To gain expertise using logistic regression for
+classification problems (CLO12), we modeled the connection between
+predictor variables and the categorical answer variable.
+
+Overall, this task gave students the chance to apply logistic regression
+for categorization goals, bridging theoretical knowledge with practical
+abilities. We used the R glm() function to analyze the data, interpret
+the findings, and evaluate the model's accuracy in predicting the
+classification of the university (private or public).
+
+\\newpage
+
+# **Analysis:**
+
+```{r warning=FALSE}
+library(ISLR)
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(pROC)
+```
+
+1.  Import the dataset and perform Exploratory Data Analysis by using
+    descriptive statistics and\
+    plots to describe the dataset.
+
+```{r}
+data("College")  # Load the College dataset from the ISLR package
+```
+
+```{r}
+summary(College)  # Summary statistics of the dataset
+```
+
+```{r}
+# Histogram of the Outstate variable
+ggplot(College, aes(x = Outstate)) +
+  geom_histogram(binwidth = 1000, fill = "#67F9EC", color = "white") +
+  labs(x = "Out-of-State Tuition", y = "Frequency") +
+  ggtitle("Histogram of Out-of-State Tuition")
+
+# Boxplot of the Private variable by the Room.Board variable
+ggplot(College, aes(x = Private, y = Room.Board)) +
+  geom_boxplot(fill = "#F99A67", color = "#F96767") +
+  labs(x = "Private", y = "Room and Board") +
+  ggtitle("Boxplot of Room and Board by Private/Public")
+
+# Scatter plot of the Grad.Rate variable by the Accept variable
+ggplot(College, aes(x = Accept, y = Grad.Rate, color = Private)) +
+  geom_point() +
+  labs(x = "Number of Acceptances", y = "Graduation Rate") +
+  ggtitle("Scatter Plot of Graduation Rate by Number of Acceptances")
+
+```
+
+2.  Split the data into a train and test set -- refer to the
+    ALY6015_Feature_Selection_R.pdf\
+    document for information on how to split a dataset.
+
+```{r}
+# Set the seed for reproducibility
+set.seed(123)
+
+# Split the data into training and test sets
+train_indices <- sample(1:nrow(College), nrow(College) * 0.7)  # 70% for training
+train_data <- College[train_indices, ]
+test_data <- College[-train_indices, ]
+```
+
+3.  Fit logistic regression model.
+
+```{r}
+# Fit the logistic regression model
+logit_model <- glm(Private ~ ., data = train_data, family = binomial)
+
+# Display the model summary
+summary(logit_model)
+```
+
+4.  Create a confusion matrix and report the results of your model
+    predictions on the train set.\
+    Interpret and discuss the confusion matrix. Which misclassifications
+    are more damaging for\
+    the analysis, False Positives or False Negatives?
+
+```{r}
+# Make predictions on the training set
+train_preds <- predict(logit_model, newdata = train_data, type = "response")
+
+# Convert predicted probabilities to class labels (0 or 1)
+train_preds_labels <- ifelse(train_preds > 0.5, 1, 0)
+
+# Create the confusion matrix
+confusion_matrix <- table(Actual = train_data$Private, Predicted = train_preds_labels)
+
+# Display the confusion matrix
+confusion_matrix
+```
+
+Interpret the confusion matrix:
+
+True Positives (TP): There are 378 private universities correctly
+classified as private (Yes). True Negatives (TN): There are 139 public
+universities correctly classified as public (No). False Positives (FP):
+There are 14 public universities misclassified as private (Yes). False
+Negatives (FN): There are 12 private universities misclassified as
+public (No).
+
+False positives (FP) in this instance stand for misclassifying public
+universities as private, whereas false negatives (FN) stand for
+misclassifying private institutions as public.
+
+The confusion matrix shows that the model has more false positives (14)
+than false negatives (12), with erroneous positives being more common.
+This suggests that a private institution will be incorrectly classified
+as public (FN) more frequently than a public university will be.
+
+False positives---classifying a public institution as private---might be
+more detrimental to the study when it comes to determining whether a
+university is private or public. This is due to the possibility that
+false positives could result in resource allocation or decision-making
+based on inaccurate information, potentially leading to inefficient
+resource utilization.
+
+5.  Report and interpret metrics for Accuracy, Precision, Recall, and
+    Specificity.
+
+```{r}
+# Calculate metrics
+accuracy <- (confusion_matrix[1, 1] + confusion_matrix[2, 2]) / sum(confusion_matrix)
+precision <- confusion_matrix[2, 2] / (confusion_matrix[2, 2] + confusion_matrix[1, 2])
+recall <- confusion_matrix[2, 2] / (confusion_matrix[2, 2] + confusion_matrix[2, 1])
+specificity <- confusion_matrix[1, 1] / (confusion_matrix[1, 1] + confusion_matrix[1, 2])
+
+# Display metrics
+cat("Accuracy:", accuracy, "\n")
+cat("Precision:", precision, "\n")
+cat("Recall (Sensitivity):", recall, "\n")
+cat("Specificity:", specificity, "\n")
+```
+
+Based on the provided output:
+
+Accuracy: 0.9521179 (95.21%) Precision: 0.9642857 (96.43%) Recall
+(Sensitivity): 0.9692308 (96.92%) Specificity: 0.9084967 (90.85%)
+Interpretation:
+
+Accuracy: The model achieves an accuracy of 95.21%, indicating that
+approximately 95.21% of the predictions on the training set are correct.
+This suggests that the model is performing well in predicting whether a
+university is private or public.
+
+Precision: The precision metric of 96.43% indicates that out of all
+instances predicted as private universities (positive), approximately
+96.43% of them are correctly classified. This means that the model has a
+relatively low rate of misclassifying public universities as private.
+
+Recall (Sensitivity): The recall, also known as sensitivity, is 96.92%.
+This implies that the model successfully captures approximately 96.92%
+of the actual private universities. In other words, the model has a
+relatively low rate of misclassifying private universities as public.
+
+Specificity: The specificity of 90.85% suggests that the model correctly
+identifies around 90.85% of the actual public universities. This
+indicates that the model has a relatively low rate of misclassifying
+public universities as private.
+
+Overall, the logistic regression model shows high accuracy, precision,
+recall, and specificity values on the training set. This indicates that
+the model performs well in distinguishing between private and public
+universities. However, it's important to validate the model's
+performance on an independent test set to ensure its generalizability.
+
+6.  Create a confusion matrix and report the results of your model for
+    the test set. Compare the\
+    results with the train set and interpret.
+
+```{r}
+# Make predictions on the test set
+test_preds <- predict(logit_model, newdata = test_data, type = "response")
+
+# Convert predicted probabilities to class labels (0 or 1)
+test_preds_labels <- ifelse(test_preds > 0.5, 1, 0)
+
+# Create the confusion matrix for the test set
+confusion_matrix_test <- table(Actual = test_data$Private, Predicted = test_preds_labels)
+
+# Display the confusion matrix for the test set
+confusion_matrix_test
+```
+
+Comparing the Confusion Matrix (Train vs. Test):
+
+True Positives (TP):
+
+Training Set: 378 Test Set: 169 True Negatives (TN):
+
+Training Set: 139 Test Set: 49 False Positives (FP):
+
+Training Set: 14 Test Set: 10 False Negatives (FN):
+
+Training Set: 12 Test Set: 6 Interpretation and Comparison:
+
+Overall Performance: The logistic regression model performed well on
+both the training and test sets, but there are some differences to note.
+
+True Positives (TP): The number of true positives decreased from 378 in
+the training set to 169 in the test set. This indicates that the model
+identified fewer actual private universities correctly in the test set
+compared to the training set.
+
+True Negatives (TN): The number of true negatives decreased from 139 in
+the training set to 49 in the test set. This suggests that the model
+correctly classified fewer actual public universities in the test set
+compared to the training set.
+
+False Positives (FP): The number of false positives increased slightly
+from 14 in the training set to 10 in the test set. This indicates that
+the model misclassified a few more public universities as private in the
+test set compared to the training set.
+
+False Negatives (FN): The number of false negatives also increased
+slightly from 12 in the training set to 6 in the test set. This suggests
+that the model misclassified a few more private universities as public
+in the test set compared to the training set.
+
+Overall, the model's performance on the test set is slightly lower than
+on the training set. The decrease in true positives, true negatives, and
+the increase in false positives and false negatives indicate that the
+model may not generalize as well to unseen data. This suggests the
+possibility of overfitting to some extent.
+
+7.  Plot and interpret the ROC curve
+
+```{r}
+# Compute predicted probabilities for the test set
+test_probs <- predict(logit_model, newdata = test_data, type = "response")
+
+# Create ROC curve
+roc_curve <- roc(test_data$Private, test_probs)
+
+# Plot ROC curve
+plot(roc_curve, main = "ROC Curve", xlab = "False Positive Rate", ylab = "True Positive Rate", col = "blue")
+lines(x = c(0, 1), y = c(0, 1), col = "red", lty = 2)
+```
+
+The ROC curve for the logistic regression model exhibits an initial
+steep ascent starting from a sensitivity of 1.0, indicating a high
+ability to correctly identify private universities without many false
+negatives. This suggests that the model effectively captures the
+distinguishing characteristics of private institutions. However, as the
+curve progresses towards the right, it bends and approaches the diagonal
+reference line, indicating a decrease in sensitivity and an increase in
+the false positive rate.
+
+The curvature of the ROC curve towards the right side suggests that the
+model's performance deteriorates as it becomes more prone to classifying
+public universities as private. This is reflected in the increasing
+false positive rate, indicating a higher rate of misclassification. The
+diminishing discriminatory power of the model is evident as it deviates
+from the ideal top-left corner of the plot.
+
+In summary, the observed ROC curve highlights the initial strength of
+the logistic regression model in accurately identifying private
+universities. However, as the false positive rate increases, the model's
+performance declines, leading to a decrease in sensitivity and reduced
+ability to distinguish between private and public universities.
+Understanding the ROC curve helps in assessing the model's
+classification performance and provides insights into the trade-offs
+between sensitivity and specificity.
+
+8.  Calculate and interpret the AUC.
+
+```{r}
+# Calculate and display the AUC
+auc_value <- auc(roc_curve)
+cat("AUC:", auc_value, "\n")
+```
+
+The AUC (Area Under the ROC Curve) value of 0.9650363 suggests that the
+logistic regression model has excellent discriminatory power in
+distinguishing between private and public universities based on the
+predicted probabilities.
+
+With an AUC value close to 1, the model demonstrates a high ability to
+rank private universities higher than public universities. This
+indicates that when comparing randomly selected pairs of private and
+public universities, the model correctly assigns a higher predicted
+probability to the private universities in approximately 96.5% of cases.
+
+The high AUC value indicates that the logistic regression model has a
+strong ability to separate the two classes, making it well-suited for
+the task of distinguishing between private and public universities. It
+suggests that the model captures the underlying patterns and
+characteristics that differentiate these two types of institutions
+effectively.
+
+Overall, the AUC value of 0.9650363 signifies a highly performing
+logistic regression model with a high degree of discriminatory power and
+confidence in its predictions when distinguishing between private and
+public universities.
+
+\\newpage
+
+# **Conclusion:**
+
+In conclusion, the use of logistic regression using R's glm() function
+has shed light on the distinction between public and private colleges.
+Through the assignment, we were able to successfully expand the general
+linear regression framework to include a link function to handle the
+categorical response variable.
+
+We assessed the model's capacity to generalize to new data by examining
+its performance on both the training and test sets. The trade-off
+between false positives and false negatives was made clear by the
+confusion matrices for both sets, which helped us comprehend the types
+of misclassifications the model made.
+
+The evaluation metrics, which included recall (sensitivity), accuracy,
+precision, and specificity, gave a thorough evaluation of the model's
+prediction ability. High values for these parameters on the training set
+suggested a strong capacity for classification. The need to assess model
+performance on unobserved data is highlighted by a modest decline in
+performance on the test set.
+
+The model's capacity to discriminate between private and public
+universities was further shown by the ROC curve, with an AUC value of
+0.9650363.
+
+We have improved our understanding of logistic regression's suitability
+for classification problems by effectively implementing it and examining
+the outcomes. The knowledge learned from this assignment can be useful
+in many areas where categorical outcome prediction is important.
